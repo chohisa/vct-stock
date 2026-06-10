@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>VCT 주식 거래소 제어 센터</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 30px; background-color: #fff5f5; color: #212529; }
+        .admin-box { max-width: 750px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border-top: 5px solid #fa5252; }
+        h1 { color: #c92a2a; text-align: center; margin-top:0; font-size: 1.6rem;}
+        h2 { font-size: 1.1rem; color: #495057; border-left: 4px solid #fa5252; padding-left: 8px; margin-top: 25px; }
+        label { display: block; margin: 10px 0 5px 0; font-weight: bold; font-size: 0.9rem;}
+        select, input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.95rem; margin-bottom: 10px;}
+        .flex-group { display: flex; gap: 10px; }
+        .btn { width: 100%; padding: 12px; color: white; border: none; border-radius: 6px; font-size: 0.95rem; cursor: pointer; font-weight: bold; margin-top: 5px;}
+        .btn-update { background-color: #212529; } .btn-update:hover { background-color: #000; }
+        .btn-undo { background-color: #fa5252; } .btn-undo:hover { background-color: #e03131; }
+        .btn-reset { background-color: #adb5bd; width: auto; padding: 5px 15px; font-size: 0.8rem; color: black; margin-top: 20px;}
+        .log-box { margin-top: 15px; background: #f8f9fa; padding: 12px; border-radius: 6px; max-height: 120px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; border: 1px solid #e9ecef;}
+    </style>
+</head>
+<body>
+
+<div class="admin-box">
+    <h1>🛠️ 통합 경기 결과 제어창</h1>
+    <h2>🏃 선수별 경기 acs 입력</h2>
+    <label>대상 선수 선택</label>
+    <select id="playerSelect"></select>
+    <label>경기 ACS 입력</label>
+    <input type="number" id="playerACS" placeholder="예: 240">
+    <button class="btn btn-update" onclick="updatePlayerACS()">⚡ 선수 주가 반영</button>
+
+    <hr style="margin-top:25px; border:0; border-top:1px dashed #dee2e6;">
+
+    <h2>⚔️ 팀 경기 결과 입력 ( 큰 오프시즌 대회 포함)</h2>
+    <label>경기 진행 팀 선택</label>
+    <div class="flex-group">
+        <select id="teamMatchTarget" style="flex:2;"></select>
+        <select id="teamMatchResult" style="flex:1;">
+            <option value="WIN">승리 (WIN)</option>
+            <option value="LOSE">패배 (LOSE)</option>
+        </select>
+    </div>
+    <label>승리 팀의 베팅 배율 입력</label>
+    <input type="number" step="0.01" id="teamMatchOdds" placeholder="예: 1.45 (역배인 경우 3.20 등)">
+    <button class="btn btn-update" onclick="updateTeamMatch()">⚡ 팀 승패 배율 반영</button>
+
+    <hr style="margin-top:25px; border:0; border-top:1px dashed #dee2e6;">
+
+    <h2>🏆 정규 리그 최종 순위 정산</h2>
+    <label>대상 팀 선택</label>
+    <select id="teamRankTarget"></select>
+    <label>이번 시즌 최종 순위 입력 (1위 ~ 12위)</label>
+    <input type="number" id="teamNewRank" min="1" max="12" placeholder="예: 1">
+    <button class="btn btn-update" onclick="updateTeamSeason()">⚡ 순위 변동 반영</button>
+
+    <hr style="margin-top:25px; border:0; border-top:1px dashed #dee2e6;">
+
+    <h2>🌍 국제 대회 성적 정산 (마스터즈 / 챔피언스)</h2>
+    <label>대상 팀 선택</label>
+    <select id="teamIntlTarget"></select>
+    <div class="flex-group">
+        <select id="intlType" style="flex:1;">
+            <option value="MASTERS">🥈 마스터즈</option>
+            <option value="CHAMPIONS">🥇 챔피언스</option>
+        </select>
+        <select id="intlResult" style="flex:1;">
+            <option value="RANK_1">🥇 최종 1등 (우승)</option>
+            <option value="RANK_2">🥈 최종 2등 (준우승)</option>
+            <option value="RANK_3">🥉 최종 3등</option>
+            <option value="PLAYOFF">플레이오프 진출</option>
+        </select>
+    </div>
+    <button class="btn btn-update" onclick="updateTeamInternational()">⚡ 국제 대회 성적 반영</button>
+
+    <hr style="margin-top:25px; border:0; border-top:1px dashed #dee2e6;">
+
+<h2>🏆 오프시즌 & 기타 성적 정산</h2>
+<label>대상 분류</label>
+<div class="flex-group">
+    <select id="customType" onchange="onCustomTypeChange()" style="flex:1;">
+        <option value="TEAM_ONLY">👥 팀 정산</option>
+        <option value="PLAYER_ONLY">🏃 선수 정산</option>
+    </select>
+</div>
+
+<label id="customTargetLabel">대상 선택</label>
+<select id="customTargetSelect"></select>
+
+<label>반영할 주가 변동률 (%)</label>
+<input type="number" id="customRate" placeholder="큰 대회 ( 우승 +15%, 준우승 +8%), 작은 대회 (우승 +10%), 국대 +10% 부상 -10%">
+
+<label>정산 사유</label>
+<input type="text" id="customReason" placeholder="예: 오프시즌 컵대회 우승, 국가대표 발탁 등">
+
+<button class="btn btn-update" style="background-color: #0984e3;" onclick="executeCustomSettlement()">⚡ 커스텀 성적 반영</button>
+
+    <hr style="margin-top:25px; border:0; border-top:1px dashed #dee2e6;">
+
+    <h2>↩️ 잘못 입력한 데이터 되돌리기</h2>
+    <label>되돌리고 싶은 종목 선택</label>
+    <select id="undoTargetSelect"></select>
+    <button class="btn btn-undo" onclick="executeUndo()">↩️ 되돌리기</button>
+
+    <center><button class="btn btn-reset" onclick="resetAll()">⚠️ 시스템 데이터 전체 초기화</button></center>
+    
+    <label style="margin-top:20px;">📜 주가 변동 로그</label>
+    <div class="log-box" id="logBox">대기 중...</div>
+</div>
+
+<script>
+let players = [];
+let teams = [];
+
+function log(msg) {
+    const box = document.getElementById('logBox');
+    if (box) box.innerHTML = msg + "<br>" + box.innerHTML;
+}
+
+function loadDropdowns() {
+    players = JSON.parse(localStorage.getItem('market_players')) || [];
+    teams = JSON.parse(localStorage.getItem('market_teams')) || [];
+
+    const pSel = document.getElementById('playerSelect');
+    const tMatchSel = document.getElementById('teamMatchTarget');
+    const tRankSel = document.getElementById('teamRankTarget');
+    const tIntlSel = document.getElementById('teamIntlTarget');
+    const undoSel = document.getElementById('undoTargetSelect');
+
+    if(!pSel) return;
+
+    pSel.innerHTML = ''; tMatchSel.innerHTML = ''; tRankSel.innerHTML = ''; tIntlSel.innerHTML = '';
+    
+    const savedUndoValue = undoSel.value;
+    undoSel.innerHTML = '';
+
+    players.forEach(p => { pSel.innerHTML += `<option value="${p.id}">${p.name} (현재 ACS: ${p.acs})</option>`; });
+    teams.forEach(t => {
+        let opt = `<option value="${t.id}">${t.name} (현재가: ${Math.round(t.price)}원 / ${t.rank}위)</option>`;
+        tMatchSel.innerHTML += opt; tRankSel.innerHTML += opt; tIntlSel.innerHTML += opt;
+    });
+
+    // 되돌리기 명단 채우기
+    players.forEach(p => { undoSel.innerHTML += `<option value="${p.id}">[선수] ${p.name} (히스토리: ${p.history.length}개)</option>`; });
+    teams.forEach(t => { undoSel.innerHTML += `<option value="${t.id}">[팀] ${t.name} (히스토리: ${t.history.length}개)</option>`; });
+    
+    if(savedUndoValue) undoSel.value = savedUndoValue;
+}
+
+function executeUndo() {
+    const targetId = document.getElementById('undoTargetSelect').value;
+    if(!targetId) return;
+
+    if(targetId.startsWith('p_')) {
+        let p = players.find(x => x.id === targetId);
+        
+        // [안전장치]
+        if(p.history.length <= 1) return alert('되돌릴 기록이 없습니다.');
+        
+        // 1) 주가 복구
+        p.history.pop();
+        p.price = p.history[p.history.length - 1];
+        
+        // 2) ACS 복구
+        if (p.acsHistory && p.acsHistory.length > 1) {
+            p.acsHistory.pop(); // 방금 바뀐 ACS 이력 삭제
+            p.acs = p.acsHistory[p.acsHistory.length - 1]; // 그 이전 ACS로 원복
+        }
+        
+        localStorage.setItem('market_players', JSON.stringify(players));
+        log(`↩️ [되돌리기 완료] '${p.name}': 주가 ${p.price}원, ACS ${p.acs}로 복구됨.`);
+    } else {
+        let t = teams.find(x => x.id === targetId);
+        if(t.history.length <= 1) return alert('되돌릴 기록이 없습니다.');
+        
+        t.history.pop();
+        t.price = t.history[t.history.length - 1];
+        
+        localStorage.setItem('market_teams', JSON.stringify(teams));
+        log(`↩️ [되돌리기 완료] 팀 '${t.name}': 주가 ${t.price}원으로 복구됨.`);
+    }
+    loadDropdowns();
+}
+
+function updatePlayerACS() {
+    const pid = document.getElementById('playerSelect').value;
+    const nextACS = parseFloat(document.getElementById('playerACS').value);
+    if(isNaN(nextACS)) return alert('올바른 ACS 값을 입력하세요.');
+
+    let p = players.find(x => x.id === pid);
+    const prevACS = p.acs;
+    const rate = ((nextACS - prevACS) / prevACS) * 2; 
+    const nextPrice = Math.round(p.price * (1 + rate));
+
+    // 💡 핵심: history에 단순히 숫자만 넣지 말고 객체로 저장
+    p.history.push(nextPrice);
+    
+    // 💡 ACS 히스토리 관리 (없으면 생성)
+    if (!p.acsHistory) p.acsHistory = [prevACS];
+    p.acsHistory.push(nextACS);
+
+    p.price = nextPrice; 
+    p.acs = nextACS; 
+
+    localStorage.setItem('market_players', JSON.stringify(players));
+    log(`[선수반영] ${p.name}: ACS ${prevACS}→${nextACS} (${Math.round(rate*100)}%) 주가: ${nextPrice}원`);
+    document.getElementById('playerACS').value = ''; 
+    loadDropdowns();
+}
+
+function updateTeamMatch() {
+    const tid = document.getElementById('teamMatchTarget').value;
+    const res = document.getElementById('teamMatchResult').value;
+    const odds = parseFloat(document.getElementById('teamMatchOdds').value);
+    if(!odds) return alert('베팅 배율을 입력해주세요.');
+
+    let t = teams.find(x => x.id === tid);
+    let finalRate = 0;
+
+    if(res === 'WIN') {
+        finalRate = odds * 0.05;
+    } else {
+        const enemyOdds = odds < 1.5 ? 3.0 : 1.2;
+        finalRate = -(enemyOdds * 0.05); 
+    }
+
+    const nextPrice = Math.round(t.price * (1 + finalRate));
+    t.price = nextPrice; t.history.push(nextPrice);
+    localStorage.setItem('market_teams', JSON.stringify(teams));
+    log(`[팀 매치] ${t.name}: ${res} (배율 ${odds}배) 적용률:${(finalRate*100).toFixed(1)}% → ${nextPrice}원`);
+    document.getElementById('teamMatchOdds').value = ''; loadDropdowns();
+}
+
+function updateTeamSeason() {
+    const tid = document.getElementById('teamRankTarget').value;
+    const newRank = parseInt(document.getElementById('teamNewRank').value);
+    if(!newRank || newRank < 1 || newRank > 12) return alert('1부터 12위 사이의 정확한 순위를 입력하세요.');
+
+    let t = teams.find(x => x.id === tid);
+    const oldRank = t.rank;
+
+    let rate = (oldRank - newRank) * 0.03;
+    let basePrice = t.price * (1 + rate);
+
+    let bonus = 1.0;
+    if(newRank === 1) bonus = 1.20;       
+    else if(newRank === 2) bonus = 1.12;  
+    else if(newRank === 3) bonus = 1.06;  
+    else if(newRank >= 9) bonus = 0.85;   
+
+    const nextPrice = Math.round(basePrice * bonus);
+    t.price = nextPrice; t.rank = newRank; t.history.push(nextPrice);
+    localStorage.setItem('market_teams', JSON.stringify(teams));
+    log(`[시즌순위] ${t.name}: ${oldRank}위→${newRank}위 정산 완료 → 최종주가: ${nextPrice}원`);
+    document.getElementById('teamNewRank').value = ''; loadDropdowns();
+}
+
+function updateTeamInternational() {
+    const tid = document.getElementById('teamIntlTarget').value;
+    const type = document.getElementById('intlType').value;
+    const res = document.getElementById('intlResult').value;
+
+    let t = teams.find(x => x.id === tid);
+    const prevPrice = t.price;
+    let playoffBonus = 0; let rankBonus = 0;    
+
+    if (type === 'MASTERS') {
+        playoffBonus = 0.15;
+        if (res === 'RANK_1') rankBonus = 0.30;      
+        else if (res === 'RANK_2') rankBonus = 0.15; 
+        else if (res === 'RANK_3') rankBonus = 0.05; 
+    } else if (type === 'CHAMPIONS') {
+        playoffBonus = 0.25;
+        if (res === 'RANK_1') rankBonus = 0.50;      
+        else if (res === 'RANK_2') rankBonus = 0.25; 
+        else if (res === 'RANK_3') rankBonus = 0.10; 
+    }
+
+    let priceAfterPlayoff = t.price * (1 + playoffBonus);
+    let nextPrice = Math.round(priceAfterPlayoff * (1 + rankBonus));
+
+    t.price = nextPrice; t.history.push(nextPrice);
+    let resultText = "플레이오프 진출";
+    if (res === 'RANK_1') resultText = "🏆 1등 (우승)";
+    else if (res === 'RANK_2') resultText = "🥈 2등 (준우승)";
+    else if (res === 'RANK_3') resultText = "🥉 3등";
+
+    let totalPercent = Math.round(((nextPrice - prevPrice) / prevPrice) * 100);
+    t.international = `${type} ${resultText}`;
+    localStorage.setItem('market_teams', JSON.stringify(teams));
+    log(`[국제대회] ${t.name}: ${type} [${resultText}] 정산 -> 총 +${totalPercent}% 폭등! → ${nextPrice}원`);
+    loadDropdowns();
+}
+
+function resetAll() {
+    if(confirm('진짜로 모든 주식 시장 데이터를 공장초기화 하시겠습니까?')) {
+        localStorage.clear();
+        alert('모든 데이터가 완벽하게 리셋되었습니다.\n투자자 전광판(index.html)을 새로고침 하시면 다시 시작됩니다.');
+        location.reload();
+    }
+}
+window.addEventListener('storage', loadDropdowns);
+window.onload = loadDropdowns;
+
+// 6번 패널 타겟 변경 함수
+function onCustomTypeChange() {
+    const type = document.getElementById('customType').value;
+    const sel = document.getElementById('customTargetSelect');
+    sel.innerHTML = '';
+    
+    if (type === 'PLAYER_ONLY') {
+        players.forEach(p => { sel.innerHTML += `<option value="${p.id}">[선수] ${p.name}</option>`; });
+    } else {
+        // TEAM_ONLY이거나 TEAM_WITH_PLAYERS이면 팀 목록 노출
+        teams.forEach(t => { sel.innerHTML += `<option value="${t.id}">[팀] ${t.name}</option>`; });
+    }
+}
+
+// 커스텀 정산 실행 엔진
+function executeCustomSettlement() {
+    const type = document.getElementById('customType').value;
+    const targetId = document.getElementById('customTargetSelect').value;
+    const ratePercent = parseFloat(document.getElementById('customRate').value);
+    const reason = document.getElementById('customReason').value;
+
+    if (!targetId) return alert('대상을 선택해주세요.');
+    if (isNaN(ratePercent)) return alert('변동률 숫자를 입력해주세요.');
+    if (!reason) return alert('정산 사유를 입력해주세요.');
+
+    const multiplier = 1 + (ratePercent / 100);
+
+    if (type === 'PLAYER_ONLY') {
+        // 1. 선수 단독 정산
+        let p = players.find(x => x.id === targetId);
+        const prev = p.price; p.price = Math.round(p.price * multiplier); p.history.push(p.price);
+        localStorage.setItem('market_players', JSON.stringify(players));
+        log(`📢 [기타성적] 선수 '${p.name}': ${ratePercent}% 반영 (${reason}) → ${p.price}원`);
+    } 
+    else if (type === 'TEAM_ONLY') {
+        // 2. 팀 단독 정산
+        let t = teams.find(x => x.id === targetId);
+        const prev = t.price; t.price = Math.round(t.price * multiplier); t.history.push(t.price);
+        localStorage.setItem('market_teams', JSON.stringify(teams));
+        log(`📢 [기타성적] 팀 '${t.name}': ${ratePercent}% 반영 (${reason}) → ${t.price}원`);
+    } 
+    
+
+    // 인풋 초기화 및 드롭다운 새로고침
+    document.getElementById('customRate').value = '';
+    document.getElementById('customReason').value = '';
+    loadDropdowns();
+}
+
+// 기존 loadDropdowns 함수 맨 마지막 줄에 아래 코드를 추가해 주셔야 6번 패널이 오작동하지 않습니다.
+// onCustomTypeChange();
+
+</script>
+</body>
+</html>
