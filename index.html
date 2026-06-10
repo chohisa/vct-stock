@@ -2,602 +2,834 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VCT 라이브 매치 시뮬레이터</title>
+    <title>VCT 주식 거래소</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; background: #111; color: #fff; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { width: 1000px; display: flex; gap: 20px; }
-        .main-panel { flex: 2; display: flex; flex-direction: column; }
-        .side-panel { flex: 1.3; background: #222; padding: 15px; border-radius: 6px; border: 1px solid #444; }
+        :root { --primary-color: #228be6; --danger-color: #fa5252; --success-color: #40c057; --dark-color: #212529; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; color: var(--dark-color); }
+        .wrapper { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr; gap: 15px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h2 { margin-top: 0; padding-bottom: 10px; border-bottom: 2px solid #edf2f7; font-size: 1.3rem; display: flex; justify-content: space-between; align-items: center; }
         
-        /* 상단 전광판 및 맵 정보 */
-        .scoreboard { background: #1f2326; border-bottom: 4px solid #ff4655; padding: 15px; border-radius: 6px; text-align: center; margin-bottom: 15px; position: relative; }
-        .map-info { position: absolute; top: 10px; right: 15px; font-size: 12px; color: #cccccc; background: #333; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
-        
-        /* 팀 이름을 흰색으로 통일 */
-        .team-name-display { color: #ffffff; font-weight: bold; display: inline-block; }
-        .team-score { font-size: 32px; font-weight: bold; color: #ece8e1; letter-spacing: 2px; }
-        .status-text { font-size: 14px; color: #ff4655; font-weight: bold; margin-top: 5px; min-height: 20px; }
+        /* 탭 스타일 */
+        .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tab-btn { padding: 10px 20px; border: 1px solid #dee2e6; background: #fff; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
 
-        /* 문자 중계창 */
-        .log-container { background: #181c1e; padding: 15px; border-radius: 6px; height: 520px; overflow-y: auto; border: 1px solid #333; font-size: 13px; line-height: 1.8; }
-        .log-line { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dashed #2a2a2a; }
-        
-        /* 킬로그 및 매치 로그 스타일 */
-        .kill-row { padding-left: 5px; font-family: monospace; font-size: 13px; margin: 3px 0; }
-        .time-stamp { color: #ece8e1; margin-right: 8px; font-weight: bold; background: #2a2a2a; padding: 1px 5px; border-radius: 3px; display: inline-block; min-width: 42px; text-align: center; }
-        .spike-time-stamp { color: #ece8e1; margin-right: 8px; font-weight: bold; background: #7C3442; padding: 1px 5px; border-radius: 3px; display: inline-block; min-width: 42px; text-align: center; }
-        
-        /* 공격/수비 색상 스타일 */
-        .p-atk { color: #D76474; font-weight: bold; } 
-        .p-def { color: #5CF8DF; font-weight: bold; } 
-        .kill-arrow { color: #fff; margin: 0 6px; font-weight: bold; }
-        
-        /* 알림창 스타일 */
-        .spike-alert { background: #B35F5E; color: #ece8e1; padding: 4px 8px; border-radius: 4px; font-weight: bold; margin: 6px 0; border-left: 4px solid #7D313F; }
-        .defuse-alert { background: #5B5863; color: #ece8e1; padding: 4px 8px; border-radius: 4px; font-weight: bold; margin: 6px 0; border-left: 4px solid #1B8877; }
-        .round-result { background: #252525; padding: 10px; border-radius: 4px; font-weight: bold; margin-top: 8px; margin-bottom: 12px; border-left: 4px solid #fff; font-size: 13px; }
-        
-        /* KDA 테이블 */
-        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; margin-bottom: 15px; }
-        th { color: #bbb; padding: 6px; font-size: 12px; }
-        td { padding: 6px; border-bottom: 1px solid #3a3a3a; }
-        
-        .team-header { color: #ffffff !important; font-weight: bold; text-align: left; padding-left: 10px; font-size: 15px; }
-        .side-atk { background-color: #7D313F !important; }
-        .side-def { background-color: #1B8877 !important; }
+        /* 전광판 */
+        .ticker-board { grid-column: 1 / 3; background: #1a1b1e; color: #fff; padding: 15px; border-radius: 12px; }
+        .ticker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; max-height: 220px; overflow-y: auto; padding-right: 5px; }
+        .ticker-item {
+            background: #2c2e33; 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            font-size: 0.85rem; 
+            cursor: pointer; 
+            border: 1px solid transparent; 
+        /* border-left 스타일은 유지하되 색상은 JS가 주입합니다 */
+            border-left: 6px solid #868e96;
+        }
 
-        /* 컨트롤 버튼 */
-        .ctrl-box { display: flex; gap: 10px; margin-bottom: 15px; }
-        button { padding: 12px 24px; background: #ff4655; color: white; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 15px; transition: 0.1s; }
-        button:hover { background: #dc3d4b; }
-        button:disabled { background: #555; cursor: not-allowed; }
+        .ticker-item:hover {
+            transform: scale(1.07); /* 자연스러운 확대 */
+            z-index: 10;
+        }
+        .ticker-item .price { font-weight: bold; font-size: 1rem; margin-top: 4px; }
+        .up { color: #ff6b6b; } .down { color: #4dadf7; }
+        
+        .user-status { display: flex; justify-content: space-around; background: #e7f5ff; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+        .status-val { font-size: 1.2rem; font-weight: bold; color: var(--primary-color); }
+        .table-wrapper { max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
+        .table-wrapper thead th { position: sticky; top: 0; background: #f1f3f5; z-index: 1; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+        th, td { padding: 10px; border-bottom: 1px solid #dee2e6; }
+        th { background: #f1f3f5; position: sticky; top: 0; }
+        
+        .trade-form select, .trade-form input { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 6px; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn { padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; width: 100%; }
+        .btn-buy { background: var(--danger-color); } .btn-sell { background: var(--primary-color); }
+        .chart-box { height: 250px; position: relative; }
+        .nav-btn { background: #6c757d; color: white; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; }
     </style>
 </head>
 <body>
 
-    <h2>VCT LIVE MATCH SIMULATOR (메커니즘 동기화 v3.0)</h2>
+<div class="wrapper">
+    <div class="card ticker-board">
+        <h2>📊 실시간 차트 <a href="admin.html" class="nav-btn" target="_blank">🛠️ admin</a></h2>
+        
+        <div class="tabs">
+            <input type="text" id="searchTicker" placeholder="🔍 종목을 검색..." oninput="filterStocks()" 
+       style="width: 100%; padding: 10px; margin-bottom: 0px; border: 1px solid #dee2e6; border-radius: 6px;">
+            <button id="tab-PLAYER" class="tab-btn active" onclick="switchTab('PLAYER')">선수 주식</button>
+            <button id="tab-TEAM" class="tab-btn" onclick="switchTab('TEAM')">구단 주식</button>
+        </div>
+
+        <div class="ticker-grid" id="tickerGrid"></div>
+    </div>
+
+    <div class="left-column">
+        <div class="card">
+            <h2>💰 나의 투자 계좌</h2>
+            <div class="user-status">
+                <div>보유 자금: <span id="userSeed" class="status-val">10,000,000원</span></div>
+                <div>총 평가 자산: <span id="userTotalAsset" class="status-val">10,000,000원</span></div>
+                <div>수익률: <span id="totalPortfolioRate" class="status-val">0%</span></div>
+            </div>
+            
+            <h3>내 보유 주식 현황</h3>
+            <div class="table-wrapper">
+                <table>
+    <thead>
+        <tr>
+            <th>종목명</th>
+            <th>분류</th>
+            <th>보유량</th>
+            <th>평균 매입가</th>
+            <th>현재가</th>
+            <th>평가손익</th> </tr>
+    </thead>
+    <tbody id="portfolioTable"></tbody>
+</table>
+            </div>
+        </div>
+
+        
+        <div class="card">
+            <h2>📈 주가 차트 (<span id="chartTitle">선택 없음</span>)</h2>
+            <div class="chart-box"><canvas id="stockChart"></canvas></div>
+        </div>
+    </div>
+
     
-    <div class="ctrl-box">
-        <button id="startBtn" onclick="initMatch()">경기 시작</button>
-    </div>
+<div class="right-column">
+    <div class="card trade-form">
+        <h2>🛒 주식 매매</h2>
+        <label>종목 선택</label>
+        <select id="tradeSelect" onchange="selectStock(this.value)"></select>
+        <label>주문 수량</label>
+        <input type="number" id="tradeQuantity" min="1" placeholder="수량 입력">
+        <div class="btn-group">
+            <button class="btn btn-buy" onclick="executeTrade('BUY')">매수</button>
+            <button class="btn btn-sell" onclick="executeTrade('SELL')">매도</button>
+        </div>
 
-    <div class="container">
-        <div class="main-panel">
-            <div class="scoreboard">
-                <div class="map-info" id="mapDisplay">MAP: 대기 중</div>
-                <div class="scoreboard-container">
-                    <div class="team-score">
-                        <!-- [변경] 라운드가 표시되는 전광판은 풀네임(T1 / Gen.G) 고정 -->
-                        <span class="team-name-display" id="nameDisplayA">T1</span> 
-                        <span id="scoreA">0</span> : <span id="scoreB">0</span> 
-                        <span class="team-name-display" id="nameDisplayB">Gen.G</span>
-                    </div>
-                </div>
-                <div class="status-text" id="matchStatus">경기 시작 버튼을 눌러 경기를 시작해 주세요.</div>
-            </div>
-            <div class="log-container" id="logBox">
-                <div class="log-line" style="color: #888;">[시스템] 버튼을 누르면 경기가 시작됩니다.</div>
+<div class="fantasy-box" style="padding: 15px;">
+        <h3 style="margin-top:30px; font-size: 1rem; display: flex; justify-content: space-between;">
+            <span>🏆 드림팀</span>
+            <span id="fantasyStatus" style="font-size: 0.7rem; color: #fa5252; background: #fff5f5; padding: 2px 6px; border-radius: 10px;">조건 미달</span>
+        </h3>
+        
+        <div style="background: #f1f3f5; padding: 8px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 20px; display: flex; justify-content: space-between;">
+            <span style="font-weight: bold;">총 가치</span>
+            <div style="text-align: right;">
+                <span id="fantasyTotalValue" style="font-weight: bold;">0원</span><br>
+                <span id="fantasyTotalRate" style="font-size: 0.8rem; color: #868e96;">(0.0%)</span>
             </div>
         </div>
 
-        <div class="side-panel">
-            <h3 style="margin-top:0; color:#ece8e1; border-bottom:2px solid #555; padding-bottom:5px;">실시간 팀별 순위표</h3>
-            <table>
-                <thead>
-                    <tr><th colspan="4" id="headerA" class="team-header">T1</th></tr>
-                    <tr><th style="width:45%; text-align:left; padding-left:10px;">선수 이름</th><th style="width:25%;">선택 요원</th><th>K</th><th>D</th><th>A</th></tr>
-                </thead>
-                <tbody id="statsA"></tbody>
-            </table>
-            <table>
-                <thead>
-                    <tr><th colspan="4" id="headerB" class="team-header">Gen.G</th></tr>
-                    <tr><th style="width:45%; text-align:left; padding-left:10px;">선수 이름</th><th style="width:25%;">선택 요원</th><th>K</th><th>D</th><th>A</th></tr>
-                </thead>
-                <tbody id="statsB"></tbody>
-            </table>
-        </div>
+        <div id="fantasyRoster" style="display: flex; flex-direction: column; gap: 4px;">
+            </div>
+
+        <button onclick="saveFantasyTeam()" style="width: 100%; margin-top: 50px; padding: 8px; border: none; border-radius: 6px; background: #212529; color: #fff; font-size: 0.85rem; cursor: pointer;">
+            라인업 저장
+        </button>
     </div>
+    <div id="playerSelectorModal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:#fff; box-shadow:0 10px 30px rgba(0,0,0,0.2); border-radius:12px; width:320px; padding:20px; z-index:9999; border:1px solid #dee2e6;">
+
+    <h4 id="modalTitle" style="margin-top:0; font-size:1rem; color:#212529;">선수 선택</h4>
+
+    <div id="myOwnedPlayerList" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:15px;">
+
+        </div>
+
+    <button onclick="closeSelectorModal()" style="width:100%; background:#868e96; color:#fff; border:none; padding:8px; border-radius:6px; cursor:pointer; font-size:0.85rem;">닫기</button>
+</div>
+</div>
+
+    </div>
+
+
 
 <script>
-const maps = ["어센트 (Ascent)", "바인드 (Bind)", "헤이븐 (Haven)", "스플릿 (Split)", "브리즈 (Breeze)", "펄 (Pearl)", "로터스 (Lotus)", "프랙처 ( Fracture)"];
-const sites = ["A", "B", "C"];
+// --- 데이터 자동 빌더 (80명 선수 및 12개 팀) ---
+const FIRST_NAMES = ["Mako", "yong", "free1ng", "HYUNMIN", "BeYN", "Lakia", "ZynX", "Ash", "Karon", "t3xture", "Munchkin", "stax", "Meteor", "BuZz", "iZu", "Rb", "Xross", "Francis", "Dambi", "ivy", "Foxy9", "Klaus", "XuNa", "oonzmlp", "Zexy"];
+const TEAM_NAMES = ["KRX", "GEN", "T1", "NS", "VL", "GE", "ZETA", "DFM", "FS", "TS", "PRX", "RRQ"];
 
-function generateStats(data) {
+function generateInitialData() {
+    // [1] 선수 80명 상장가 직접 설정 구역
+let players = [
+    { id: "p_1", type: 'PLAYER', name: "invy", price: 1907, acs: 190.7, roles: ["척후대"],  history: [1907], color: "#01D2D7" },
+    { id: "p_2", type: 'PLAYER', name: "Jinggg",  price: 2099, acs: 209.9, roles: ["타격대"],  history: [2099] },
+    { id: "p_3", type: 'PLAYER', name: "f0rsakeN",   price: 2092, acs: 209.2, roles: ["타격대", "척후대", "전략가", "감시자", "IGL"], history: [2092], color: "#01D2D7" },
+    { id: "p_4", type: 'PLAYER', name: "d4v41",price: 2032, acs: 203.2, roles: ["감시자"],  history: [2032], color: "#01D2D7" },
+    { id: "p_5", type: 'PLAYER', name: "something",    price: 1959, acs: 195.9, roles: ["타격대"],  history: [1959], color: "#01D2D7" }, 
+    { id: "p_6", type: 'PLAYER', name: "Leviathan", price: 1563, acs: 156.3, roles: ["전략가", "감시자"],  history: [1563], color: "#01D2D7" },
+    { id: "p_7", type: 'PLAYER', name: "Killua",  price: 1767, acs: 176.7, roles: ["척후대"],  history: [1767], color: "#01D2D7" },
+    { id: "p_8", type: 'PLAYER', name: "primmie",   price: 2672, acs: 267.2, roles: ["타격대"],  history: [2672], color: "#01D2D7" },
+    { id: "p_9", type: 'PLAYER', name: "JitBoyS",price: 2056, acs: 205.6, roles: ["타격대", "감시자"],  history: [2056], color: "#01D2D7" },
+    { id: "p_10", type: 'PLAYER', name: "Crws",    price: 1674, acs: 167.4, roles: ["전략가","감시자", "IGL"],  history: [1674], color: "#01D2D7" },
+    { id: "p_11", type: 'PLAYER', name: "PatMen", price: 2113, acs: 211.3, roles: ["전략가", "척후대"],  history: [2113], color: "#01D2D7" },
+    { id: "p_12", type: 'PLAYER', name: "UdoTan",  price: 2349, acs: 234.9, roles: ["타격대"],  history: [2349], color: "#01D2D7" },
+    { id: "p_13", type: 'PLAYER', name: "Kr1stal",   price: 1932, acs: 193.2, roles: ["척후대", "감시자"],  history: [1932], color: "#01D2D7" },
+    { id: "p_14", type: 'PLAYER', name: "xavi8k",price: 1584, acs: 158.4, roles: ["전략가", "IGL"],  history: [1584], color: "#01D2D7" },
+    { id: "p_15", type: 'PLAYER', name: "Autumn",    price: 2090, acs: 209.0, roles: ["타격대", "감시자"],  history: [2090], color: "#01D2D7" },
+    { id: "p_16", type: 'PLAYER', name: "Munchkin", price: 1697, acs: 169.7, roles: ["전략가", "IGL"],  history: [1697], color: "#01D2D7" },
+    { id: "p_17", type: 'PLAYER', name: "stax",  price: 1744, acs: 174.4, roles: ["척후대"],  history: [1744], color: "#01D2D7" },
+    { id: "p_18", type: 'PLAYER', name: "Meteor",   price: 2181, acs: 218.1, roles: ["감시자"],  history: [2181], color: "#01D2D7" },
+    { id: "p_19", type: 'PLAYER', name: "BuZz",price: 2312, acs: 231.2, roles: ["타격대"],  history: [2312], color: "#01D2D7" },
+    { id: "p_20", type: 'PLAYER', name: "iZu",    price: 2009, acs: 200.9, roles: ["타격대", "척후대", "전략가", "감시자"], history: [2009], color: "#01D2D7" },
+    { id: "p_21", type: 'PLAYER', name: "crazyguy", price: 1778, acs: 177.8, roles: ["척후대", "전략가", "IGL"], history: [1778], color: "#01D2D7" },
+    { id: "p_22", type: 'PLAYER', name: "Monyet",  price: 1983, acs: 198.3, roles: ["타격대", "전략가"], history: [1983], color: "#01D2D7" },
+    { id: "p_23", type: 'PLAYER', name: "xffero",   price: 2059, acs: 205.9, roles: ["감시자"], history: [2059], color: "#01D2D7" },
+    { id: "p_24", type: 'PLAYER', name: "Jemkin",price: 2174, acs: 217.4, roles: ["타격대"], history: [2174], color: "#01D2D7" },
+    { id: "p_25", type: 'PLAYER', name: "Kushy",    price: 2025, acs: 202.5, roles: ["척후대"], history: [2025], color: "#01D2D7" },
+    { id: "p_26", type: 'PLAYER', name: "Mako", price: 2081, acs: 208.1, roles: ["전략가"], history: [2081], color: "#01D2D7" },
+    { id: "p_27", type: 'PLAYER', name: "yong",  price: 1892, acs: 189.2, roles: ["감시자"], history: [1892], color: "#01D2D7" },
+    { id: "p_28", type: 'PLAYER', name: "free1ng",   price: 1926, acs: 192.6, roles: ["척후대", "감시자", "타격대"], history: [1926], color: "#01D2D7" },
+    { id: "p_29", type: 'PLAYER', name: "HYUNMIN",price: 1980, acs: 198.0, roles: ["타격대"], history: [1980], color: "#01D2D7" },
+    { id: "p_30", type: 'PLAYER', name: "BeYN",    price: 1718, acs: 171.8, roles: ["척후대", "IGL"], history: [1718], color: "#01D2D7" },
+    { id: "p_31", type: 'PLAYER', name: "Meiy", price: 2513, acs: 251.3, roles: ["타격대"], history: [2513], color: "#01D2D7" },
+    { id: "p_32", type: 'PLAYER', name: "SSeeS",  price: 1334, acs: 133.4, roles: ["전략가", "IGL"], history: [1334], color: "#01D2D7" },
+    { id: "p_33", type: 'PLAYER', name: "yatsuka",   price: 1518, acs: 151.8, roles: ["척후대"], history: [1518], color: "#01D2D7" },
+    { id: "p_34", type: 'PLAYER', name: "Caedye",price: 2292, acs: 229.2, roles: ["감시자"], history: [2292], color: "#01D2D7" },
+    { id: "p_35", type: 'PLAYER', name: "Akame",    price: 2131, acs: 213.1, roles: ["타격대", "척후대"], history: [2131], color: "#01D2D7" },
+    { id: "p_36", type: 'PLAYER', name: "Rb", price: 1614, acs: 161.4, roles: ["전략가"], history: [1614], color: "#01D2D7" },
+    { id: "p_37", type: 'PLAYER', name: "Xross",  price: 2073, acs: 207.3, roles: ["타격대"], history: [2073], color: "#01D2D7" },
+    { id: "p_38", type: 'PLAYER', name: "Francis",   price: 2086, acs: 208.6, roles: ["척후대", "IGL"], history: [2086], color: "#01D2D7" },
+    { id: "p_39", type: 'PLAYER', name: "Dambi",price: 2216, acs: 221.6, roles: ["타격대"], history: [2216], color: "#01D2D7" },
+    { id: "p_40", type: 'PLAYER', name: "Ivy",    price: 1894, acs: 189.4, roles: ["감시자"], history: [1894], color: "#01D2D7" },
+    { id: "p_41", type: 'PLAYER', name: "JessieVash", price: 1415, acs: 141.5, roles: ["척후대", "IGL"], history: [1415], color: "#01D2D7" },
+    { id: "p_42", type: 'PLAYER', name: "kellyS",  price: 2141, acs: 214.1, roles: ["척후대", "감시자"], history: [2141], color: "#01D2D7" },
+    { id: "p_43", type: 'PLAYER', name: "Zeus",   price: 2484, acs: 248.4, roles: ["타격대"], history: [2484], color: "#01D2D7" },
+    { id: "p_44", type: 'PLAYER', name: "Sylvan",price: 2101, acs: 210.1, roles: ["전략가"], history: [2101] , color: "#01D2D7"},
+    { id: "p_45", type: 'PLAYER', name: "BerserX",    price: 1830, acs: 183.0, roles: ["감시자"], history: [1830], color: "#01D2D7" },
+    { id: "p_46", type: 'PLAYER', name: "Absol", price: 2188, acs: 218.8, roles: ["타격대"], history: [2188], color: "#01D2D7" },
+    { id: "p_47", type: 'PLAYER', name: "SyouTa",  price: 2006, acs: 200.6, roles: ["타격대", "감시자"], history: [2006], color: "#01D2D7" },
+    { id: "p_48", type: 'PLAYER', name: "SugarZ3ro",   price: 1526, acs: 152.6, roles: ["전략가", "IGL"], history: [1526], color: "#01D2D7" },
+    { id: "p_49", type: 'PLAYER', name: "eKo",price: 1726, acs: 172.6, roles: ["척후대"], history: [1726], color: "#01D2D7" },
+    { id: "p_50", type: 'PLAYER', name: "Xdll",    price: 1801, acs: 180.1, roles: ["척후대", "감시자"], history: [1801], color: "#01D2D7" },
+    { id: "p_51", type: 'PLAYER', name: "Lakia", price: 1541, acs: 154.1, roles: ["척후대", "IGL"], history: [1541], color: "#01D2D7" },
+    { id: "p_52", type: 'PLAYER', name: "ZynX",  price: 1741, acs: 174.1, roles: ["감시자"], history: [1741], color: "#01D2D7" },
+    { id: "p_53", type: 'PLAYER', name: "Ash",   price: 1702, acs: 170.2, roles: ["타격대"], history: [1702], color: "#01D2D7" },
+    { id: "p_54", type: 'PLAYER', name: "Karon",price: 2063, acs: 206.3, roles: ["전략가"], history: [2063], color: "#01D2D7" },
+    { id: "p_55", type: 'PLAYER', name: "t3xture",    price: 2502, acs: 250.2, roles: ["타격대"], history: [2502], color: "#01D2D7" },
+    { id: "p_56", type: 'PLAYER', name: "Foxy9", price: 2030, acs: 203.0, roles: ["감시자"], history: [2030], color: "#01D2D7" },
+    { id: "p_57", type: 'PLAYER', name: "Klaus",  price: 1881, acs: 188.1, roles: ["타격대"], history: [1881], color: "#01D2D7" },
+    { id: "p_58", type: 'PLAYER', name: "XuNa",   price: 1864, acs: 186.4, roles: ["척후대"], history: [1864] , color: "#01D2D7"},
+    { id: "p_59", type: 'PLAYER', name: "oonzmlp",price: 2237, acs: 223.7, roles: ["전략가", "IGL"], history: [2237], color: "#01D2D7" },
+    { id: "p_60", type: 'PLAYER', name: "Zexy",    price: 1913, acs: 191.3, roles: ["타격대"], history: [1913], color: "#01D2D7" },
 
-    return {
+    { id: "p_61", type: 'PLAYER', name: "CN",   price: 9999, acs: 999.9, roles: ["타격대", "척후대", "전략가", "감시자", "IGL"], history: [9999], color: "#FC2659" },
 
-    mechanics:
-        (
-            data.ACS * 0.35 +
-            data.ADR * 0.30 +
-            data.KPR * 100 * 0.35
-        ) / 2.2,
+    { id: "p_62", type: 'PLAYER', name: "EMEA",   price: 9999, acs: 999.9, roles: ["타격대", "척후대", "전략가", "감시자", "IGL"], history: [9999], color: "#D4FF1D" },
 
-    survival:
-        (
-            data.KAST +
-            data["K:D"] * 50
-        ) / 1.6,
+    { id: "p_63", type: 'PLAYER', name: "AMER",   price: 9999, acs: 999.9, roles: ["타격대", "척후대", "전략가", "감시자", "IGL"], history: [9999], color: "#FF570C" },
+    
+    // ... 이런 식으로 p_80까지 원하는 선수 이름과 정확한 시작 주가(price)를 적어줍니다.
+];
 
-    consistency:
-        data.RATING * 70,
-
-    support:
-        (
-            data.APR * 100 +
-            data.KAST * 0.4
-        ) / 1.3
-};
-}
-
-// [변경] 시뮬레이션 내부 연산용 데이터 구조 (fullName과 약어 shortName 추가)
-let teamA = {
-    name: "T1", fullName: "T1", shortName: "T1", score: 0, side: "공격",
-    players: [
-        { name: "stax", agent: "스카이", stats: generateStats({ ACS: 166.3, ADR: 95.7, KPR: 0.53, FKPR: 0.06, FDPR: 0.06, APR: 0.38, KAST: 74, RATING: 0.86, "K:D": 0.93 }), k: 0, d: 0, a: 0, isIgl: false },
-        { name: "BuZz", agent: "네온", stats: generateStats({ ACS: 239.2, ADR: 145.3, KPR: 0.86, FKPR: 0.17, FDPR: 0.15, APR: 0.22, KAST: 72, RATING: 1.07, "K:D": 1.27 }), k: 0, d: 0, a: 0, isIgl: false },
-        { name: "Munchkin", agent: "오멘", stats: generateStats({ ACS: 179.1, ADR: 110.3, KPR: 0.61, FKPR: 0.05, FDPR: 0.12, APR: 0.39, KAST: 71, RATING: 0.89, "K:D": 0.98 }), k: 0, d: 0, a: 0, isIgl: false },
-        { name: "Meteor", agent: "바이퍼", stats: generateStats({ ACS: 191.4, ADR: 127.0, KPR: 0.64, FKPR: 0.11, FDPR: 0.12, APR: 0.29, KAST: 69, RATING: 0.91, "K:D": 1.09 }), k: 0, d: 0, a: 0, isIgl: false },
-        { name: "iZu", agent: "체임버", stats: generateStats({ ACS: 223.5, ADR: 142.2, KPR: 0.84, FKPR: 0.16, FDPR: 0.11, APR: 0.08, KAST: 74, RATING: 1.21, "K:D": 1.48 }), k: 0, d: 0, a: 0, isIgl: false }
-    ]
-};
-
-let teamB = {
-    name: "Gen.G", fullName: "Gen.G", shortName: "Gen", score: 0, side: "수비",
-    players: [
-        { name: "Lakia", agent: "페이드", stats: generateStats({ ACS: 176.3, ADR: 115.2, KPR: 0.60, FKPR: 0.05, FDPR: 0.06, APR: 0.42, KAST: 75, RATING: 0.92, "K:D": 0.88 }), k: 0, d: 0, a: 0, isIgl: false },
-        { name: "t3xture", agent: "체임버", stats: generateStats({ ACS: 248.0, ADR: 157.4, KPR: 0.96, FKPR: 0.20,FDPR: 0.17, APR: 0.23, KAST: 69, RATING: 0.95, "K:D": 1.21 }), k: 0, d: 0, a: 0, isIgl: false },
-        { name: "Karon", agent: "오멘", stats: generateStats({ ACS: 193.3, ADR: 119.5, KPR: 0.66, FKPR: 0.07,  FDPR: 0.07, APR: 0.08, KAST: 78, RATING: 1.35, "K:D": 1.18 }), k: 0, d: 0, a: 0, isIgl: false },
-        { name: "Ash", agent: "네온", stats: generateStats({ ACS: 203.7, ADR: 125.5, KPR: 0.71, FKPR: 0.14, FDPR: 0.06, APR: 0.51, KAST: 79, RATING: 1.03, "K:D": 1.02 }), k: 0, d: 0, a: 0, isIgl: false },
-        { name: "ZynX", agent: "바이스", stats: generateStats({ ACS: 170.4, ADR: 128.0, KPR: 0.61, FKPR: 0.07, FDPR: 0.07, APR: 0.23, KAST: 69, RATING: 1.01, "K:D": 1.00 }), k: 0, d: 0, a: 0, isIgl: false }
-    ]
-};
-
-let currentRound = 1;
-let isMatchActive = false;
-let roundQueue = [];
-let queueInterval = null;
-
-function updateSideColors() {
-    const classA = teamA.side === "공격" ? "side-atk" : "side-def";
-    const classB = teamB.side === "공격" ? "side-atk" : "side-def";
-    document.getElementById("headerA").className = "team-header " + classA;
-    document.getElementById("headerB").className = "team-header " + classB;
-    document.getElementById("headerA").innerText = `${teamA.fullName} (${teamA.side})`;
-    document.getElementById("headerB").innerText = `${teamB.fullName} (${teamB.side})`;
-}
-
-function updateStatTables() {
-    ['A', 'B'].forEach(t => {
-        const team = t === 'A' ? teamA : teamB;
-        const tbody = document.getElementById(`stats${t}`);
-        tbody.innerHTML = '';
-        let sortedPlayers = [...team.players].sort((x, y) => (y.k !== x.k) ? (y.k - x.k) : (x.d - y.d));
-        sortedPlayers.forEach((p) => {
-            let nameDisplay = p.isIgl ? `[IGL] ${p.name}` : p.name;
-            tbody.innerHTML += `<tr>
-                <td style="text-align:left; padding-left:10px; font-weight:bold;">${nameDisplay}</td>
-                <td style="color:#fff; font-weight:bold;">${p.agent}</td>
-                <td style="color:#fff; font-weight:bold;">${p.k}</td>
-                <td style="color:#fff;">${p.d}</td>
-                <td style="color:#fff;">${p.a}</td>
-            </tr>`;
+// ⚠️ 만약 80명을 손으로 다 적기 힘들어서, 중간에 빼먹은 경우를 대비한 안전장치 코드
+if (players.length < 63) {
+    for (let i = players.length + 1; i <= 60; i++) {
+        players.push({
+            id: `p_${i}`,
+            type: 'PLAYER',
+            name: `테스트선수_#${i}`,
+            price: 1500, // 미처 적지 못한 나머지 선수들의 기본 상장가
+            acs: 220,
+            history: [1500]
         });
-    });
-}
-
-function initMatch() {
-    if(queueInterval) clearInterval(queueInterval);
-    const chosenMap = maps[Math.floor(Math.random() * maps.length)];
-    document.getElementById("mapDisplay").innerText = `MAP: ${chosenMap}`;
-    
-    teamA.score = 0; teamA.side = "공격";
-    teamB.score = 0; teamB.side = "수비";
-    currentRound = 1;
-    
-    [teamA, teamB].forEach(team => team.players.forEach(p => { p.k = 0; p.d = 0; p.a = 0; }));
-    document.getElementById("scoreA").innerText = "0";
-    document.getElementById("scoreB").innerText = "0";
-    
-    // 전광판 풀네임 초기 강제 세팅
-    document.getElementById("nameDisplayA").innerText = teamA.fullName;
-    document.getElementById("nameDisplayB").innerText = teamB.fullName;
-    
-    document.getElementById("logBox").innerHTML = `<div class="log-line" style="color:#00ffcc; font-weight:bold;">[시스템] 경기가 시작되었습니다. 곧 전반전 피스톨 라운드가 시작됩니다.</div>`;
-    
-    updateSideColors();
-    updateStatTables();
-    isMatchActive = true;
-    generateRoundData(); 
-}
-
-// [변경] 선수 이름 옆에 들어가는 소속 팀 표시를 약자(shortName -> T1, Gen)로 적용
-function makeKillLogHtml(isSpikeMode, timeVal, kTeam, killer, kVTeam, victim, isExplosion = false) {
-    let victimClass = kVTeam.side === "공격" ? "p-atk" : "p-def";
-    let timeTag = isSpikeMode ? `<span class="spike-time-stamp">${timeVal}</span>` : `<span class="time-stamp">${timeVal}</span>`;
-    
-    if (isExplosion) {
-        return `<div class="kill-row">
-            ${timeTag}
-            <span style="color:#ffb3b3; font-weight:bold;">💥</span>
-            <span class="kill-arrow">➔</span>
-            <span class="${victimClass}">${kVTeam.shortName} ${victim.name}(${victim.agent})</span>
-        </div>`;
     }
-    let killerClass = kTeam.side === "공격" ? "p-atk" : "p-def";
-    return `<div class="kill-row">
-        ${timeTag}
-        <span class="${killerClass}">${kTeam.shortName} ${killer.name}(${killer.agent})</span>
-        <span class="kill-arrow">➔</span>
-        <span class="${victimClass}">${kVTeam.shortName} ${victim.name}(${victim.agent})</span>
-    </div>`;
+}
+    // [2] 팀 12개 상장가 직접 설정 구역 (최근 리그 순위 기준)
+let teams = [
+    { id: "t_1", type: 'TEAM', name: "GEN", price: 6000, rank: 11, history: [6000], color: "#01D2D7" },
+    { id: "t_2", type: 'TEAM', name: "KRX",   price: 11000, rank: 6, history: [11000], color: "#01D2D7" },
+    { id: "t_3", type: 'TEAM', name: "T1",    price: 13000, rank: 4, history: [13000] , color: "#01D2D7"},
+    { id: "t_4", type: 'TEAM', name: "VL",   price: 5000,  rank: 12, history: [5000], color: "#01D2D7" },
+    { id: "t_5", type: 'TEAM', name: "DFM",  price: 10000,  rank: 7, history: [10000], color: "#01D2D7" }, 
+    { id: "t_6", type: 'TEAM', name: "FS",price: 15000,  rank: 2, history: [15000], color: "#01D2D7" }, 
+    { id: "t_7", type: 'TEAM', name: "GE",price: 14000,  rank: 3, history: [14000], color: "#01D2D7" }, 
+    { id: "t_8", type: 'TEAM', name: "PRX",price: 16000,  rank: 1, history: [16000] , color: "#01D2D7"}, 
+    { id: "t_9", type: 'TEAM', name: "RRQ", price: 12000,  rank: 5, history: [12000] , color: "#01D2D7"}, 
+    { id: "t_10",type: 'TEAM', name: "TS",  price: 8000,  rank: 9, history: [8000], color: "#01D2D7"}, 
+    { id: "t_11",type: 'TEAM', name: "ZETA",  price: 7000,  rank: 10, history: [7000], color: "#01D2D7" },
+    { id: "t_12",type: 'TEAM', name: "NS",  price: 9000,  rank: 8, history: [9000] , color: "#01D2D7"},
+
+    { id: "t_13", type: 'TEAM', name: "CN",price: 20000,  rank: 1, history: [20000] , color: "#FC2659"},
+
+    { id: "t_14", type: 'TEAM', name: "EMEA",price: 20000,  rank: 1, history: [20000] , color: "#D4FF1D"},
+
+    { id: "t_15", type: 'TEAM', name: "AMER",price: 20000,  rank: 1, history: [20000] , color: "#FF570C"},
+];
+    localStorage.setItem('market_players', JSON.stringify(players));
+    localStorage.setItem('market_teams', JSON.stringify(teams));
 }
 
-function generateRoundData() {
-    if (!isMatchActive) return;
-    roundQueue = [];
+if (!localStorage.getItem('market_players')) { generateInitialData(); }
+if (!localStorage.getItem('userData')) { localStorage.setItem('userData', JSON.stringify({ seed: 10000000, portfolio: {} })); }
 
-    let atkTeam = teamA.side === "공격" ? teamA : teamB;
-    let defTeam = teamA.side === "수비" ? teamA : teamB;
+let currentTab = 'PLAYER';
+let currentSelectedId = '';
+let stockChart = null;
 
-    if (currentRound === 13) {
-        teamA.side = "수비"; teamB.side = "공격";
-        atkTeam = teamA.side === "공격" ? teamA : teamB;
-        defTeam = teamA.side === "수비" ? teamA : teamB;
-        roundQueue.push({ type: "swap", html: `<div class="log-line" style="color:#FFFFCA; font-weight:bold; text-align:center; background:#222; padding:5px;">=== 공수 교대 ===</div>` });
+function renderAll() {
+    const players = JSON.parse(localStorage.getItem('market_players'));
+    const teams = JSON.parse(localStorage.getItem('market_teams'));
+    const userData = JSON.parse(localStorage.getItem('userData'));
+    
+    const grid = document.getElementById('tickerGrid');
+    const tradeSel = document.getElementById('tradeSelect');
+    
+    grid.innerHTML = '';
+    tradeSel.innerHTML = '';
+    
+    // 전광판 탭 메뉴 활성화 표시
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${currentTab}`).classList.add('active');
+
+    // 현재 탭의 리스트를 가져온 뒤, 가격(price)이 높은 순서대로 정렬합니다.
+    const currentList = currentTab === 'PLAYER' ? players : teams;
+    currentList.sort((a, b) => b.price - a.price); 
+
+    if(!currentSelectedId || !currentList.find(x => x.id === currentSelectedId)) {
+        currentSelectedId = currentList[0].id;
     }
 
-    roundQueue.push({ type: "text", html: `<div style="margin-top:10px; color:#aaa; font-weight:bold;">[ROUND ${currentRound} 시작]</div>` });
-
-    let aliveA = [...teamA.players];
-    let aliveB = [...teamB.players];
-    
-    let roundTime = 95; 
-    let spikeTime = 45; 
-    let isPlanted = false;
-    let isDefused = false;
-    let defuseProgress = 0; 
-
-    let mapName = document.getElementById("mapDisplay").innerText;
-    let chosenSite = sites[Math.floor(Math.random() * (mapName.includes("헤이븐") || mapName.includes("로터스") ? 3 : 2))];
-
-    let pA = teamA.players.reduce((s, p) => { return s + p.stats.mechanics * 0.45 + p.stats.consistency * 0.25 + p.stats.survival * 0.15 + p.stats.entry * 0.15; }, 0) / 5;
-    let pB = teamB.players.reduce((s, p) => { return s + p.stats.mechanics * 0.45 + p.stats.consistency * 0.25 + p.stats.survival * 0.15 + p.stats.entry * 0.15; }, 0) / 5;
-    let rWinner = pA > pB ? teamA : teamB;
-
-    let loopBreak = false;
-
-    while (aliveA.length > 0 && aliveB.length > 0 && !loopBreak) {
-        let curAliveAtk = (teamA.side === "공격") ? aliveA : aliveB;
-        let curAliveDef = (teamA.side === "수비") ? aliveA : aliveB;
-
-        if (!isPlanted) {
-            roundTime -= Math.floor(Math.random() * 8) + 12;
-            if (roundTime <= 4) roundTime = 5;
-
-            if (roundTime <= 65) {
-                let basePlantChance = 0.45;
-                let ratio = curAliveAtk.length / curAliveDef.length; 
-                let finalPlantChance = basePlantChance * ratio; 
-                if(finalPlantChance > 0.85) finalPlantChance = 0.85;
-                if(finalPlantChance < 0.10) finalPlantChance = 0.10;
-
-                if (Math.random() < finalPlantChance) {
-                    isPlanted = true;
-                    let planter = curAliveAtk[Math.floor(Math.random() * curAliveAtk.length)];
-                    roundQueue.push({ 
-                        type: "text", 
-                        html: `<div class="spike-alert">SPIKE ${planter.name} 선수가 ${chosenSite} 사이트에 스파이크를 설치했습니다.</div>` 
-                    });
-                    continue;
-                }
-            }
-        } else {
-            let timeDrop = Math.floor(Math.random() * 4) + 5;
-            spikeTime -= timeDrop;
-            if (spikeTime <= 0) break;
-
-            if (rWinner.side === "수비" && Math.random() < 0.35 && !isDefused && curAliveDef.length > 0) {
-                let attemptTime = Math.floor(Math.random() * 3) + 3; 
-                defuseProgress += attemptTime;
-                let defuser = curAliveDef[Math.floor(Math.random() * curAliveDef.length)];
-
-                if (defuseProgress >= 7) {
-                    isDefused = true;
-                    roundQueue.push({ 
-                        type: "text", 
-                        html: `<div class="defuse-alert">DEFUSE ${defuser.name} 선수가 스파이크를 해체했습니다.</div>` 
-                    });
-                    break;
-                } else if (defuseProgress >= 3.5 && defuseProgress - attemptTime < 3.5) {
-                    defuseProgress = 3.5; 
-                    roundQueue.push({ 
-                        type: "text", 
-                        html: `<div class="defuse-alert">DEFUSE ${defuser.name} 선수가 스파이크를 반해체했습니다.</div>` 
-                    });
-                }
-            }
-        }
-
-        let curTimeStr = !isPlanted ? `${Math.floor(roundTime / 60)}:${(roundTime % 60).toString().padStart(2, '0')}` : `${spikeTime}`;
-        if (Math.random() < 0.35) {
-    continue;
-}
-        let atkAlive = atkTeam === teamA ? aliveA : aliveB;
-let defAlive = defTeam === teamA ? aliveA : aliveB;
-
-let atkP = aliveA.reduce((s, p) => {
-    return s +
-        p.stats.mechanics * 0.4 +
-        p.stats.survival * 0.35 +
-        p.stats.consistency * 0.25 ;
-}, 0) / aliveA.length + (Math.random() * 10 - 5);
-
-let defP = aliveB.reduce((s, p) => {
-    return s +
-        p.stats.mechanics * 0.4 +
-        p.stats.survival * 0.35 +
-        p.stats.consistency * 0.25 ;
-}, 0) / aliveB.length + (Math.random() * 10 - 5);
+    currentList.forEach(item => {
+        const prevPrice = item.history.length > 1 ? item.history[item.history.length - 2] : item.history[0];
+        const changeRate = (((item.price - prevPrice) / prevPrice) * 100).toFixed(1);
+        const changeClass = changeRate > 0 ? 'up' : (changeRate < 0 ? 'down' : '');
+        const changeSign = changeRate > 0 ? '▲' : (changeRate < 0 ? '▼' : '');
         
-        if (atkP > defP) {
+        const subInfo = item.type === 'PLAYER' ? `ACS ${item.acs}` : `${item.rank}위`;
 
-    let killerList = atkTeam === teamA ? aliveA : aliveB;
-    let victimList = defTeam === teamA ? aliveA : aliveB;
+        // 💡 [수정] 데이터에 color가 있으면 쓰고, 없으면 기본 회색(#868e96)을 사용합니다.
+        const customColor = item.color || '#868e96';
 
-    let kIdx = weightedPlayer(killerList, "entry");
-    let dIdx = weightedDeath(victimList);
-
-    roundQueue.push({
-        type: "kill",
-        isSpike: isPlanted,
-        time: curTimeStr,
-        isExplosion: false,
-        killerTeam: atkTeam,
-        killer: killerList[kIdx],
-        victimTeam: defTeam,
-        victim: victimList[dIdx]
+        // 💡 [수정] 테두리 색상(border-left-color) 인라인 스타일을 동적으로 주입합니다.
+        grid.innerHTML += `
+            <div class="ticker-item" style="border-left-color: ${customColor};" onclick="selectStock('${item.id}')">
+                <div><strong>${item.name}</strong></div>
+                <div class="price ${changeClass}">${Math.round(item.price).toLocaleString()}원</div>
+                <div style="font-size:0.75rem; color:#aaa;">${subInfo} (${changeSign}${Math.abs(changeRate)}%)</div>
+            </div>`;
     });
 
-    victimList.splice(dIdx, 1);
+    // 주문창 드롭다운도 보기 좋게 가격 순서대로 정렬하여 노출
+    const sortedPlayers = [...players].sort((a,b) => b.price - a.price);
+    const sortedTeams = [...teams].sort((a,b) => b.price - a.price);
+
+    sortedPlayers.forEach(p => { tradeSel.innerHTML += `<option value="${p.id}">[선수] ${p.name} (${Math.round(p.price)}원)</option>`; });
+    sortedTeams.forEach(t => { tradeSel.innerHTML += `<option value="${t.id}">[팀] ${t.name} (${Math.round(t.price)}원)</option>`; });
+    
+    tradeSel.value = currentSelectedId;
+    
+    renderPortfolio(players, teams, userData);
+    renderChart(currentList);
 }
-else {
 
-    let killerList = defTeam === teamA ? aliveA : aliveB;
-    let victimList = atkTeam === teamA ? aliveA : aliveB;
+function renderPortfolio(players, teams, userData) {
+    document.getElementById('userSeed').innerText = userData.seed.toLocaleString() + "원";
+    const tbody = document.getElementById('portfolioTable');
+    tbody.innerHTML = '';
+    
+    let totalStockValue = 0;
+    let totalInvested = 0; 
 
-    let kIdx = weightedPlayer(killerList, "normal");
-    let dIdx = weightedDeath(victimList);
+    const allStocks = [...players, ...teams];
 
-    roundQueue.push({
-        type: "kill",
-        isSpike: isPlanted,
-        time: curTimeStr,
-        isExplosion: false,
-        killerTeam: defTeam,
-        killer: killerList[kIdx],
-        victimTeam: atkTeam,
-        victim: victimList[dIdx]
+ 
+let portfolioEntries = Object.entries(userData.portfolio).filter(([pid, hold]) => hold.qty > 0);
+
+portfolioEntries.sort((a, b) => {
+    
+    if (b[1].qty !== a[1].qty) {
+        return b[1].qty - a[1].qty;
+    }
+    
+    const stockA = allStocks.find(item => item.id === a[0]);
+    const stockB = allStocks.find(item => item.id === b[0]);
+    const priceA = stockA ? stockA.price : 0;
+    const priceB = stockB ? stockB.price : 0;
+    
+    return priceB - priceA; 
+});
+
+    portfolioEntries.forEach(([pid, hold]) => {
+        let p = allStocks.find(item => item.id === pid);
+        if (!p) return;
+
+        let buyTotal = hold.avgPrice * hold.qty;
+        let currentTotal = p.price * hold.qty;
+        let profit = currentTotal - buyTotal;
+        let profitRate = buyTotal > 0 ? ((profit / buyTotal) * 100).toFixed(1) : 0;
+        
+        totalStockValue += currentTotal;
+        totalInvested += buyTotal;
+        
+        let profitClass = profit > 0 ? 'up' : (profit < 0 ? 'down' : '');
+
+        // 💡 중요: <td>가 정확히 6개인지 확인하세요 (헤더와 개수 일치)
+        tbody.innerHTML += `
+    <tr style="border-bottom: 1px solid #e9ecef;">
+        <td style="display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: ${p.color || '#868e96'}; flex-shrink: 0;"></span>
+            <strong>${p.name}</strong>
+        </td>
+        <td>${p.type === 'PLAYER' ? '선수' : '팀'}</td>
+        <td>${hold.qty}주</td>
+        <td>${Math.round(hold.avgPrice).toLocaleString()}원</td>
+        <td>${Math.round(p.price).toLocaleString()}원</td>
+        <td class="${profitClass}">${profit > 0 ? '+' : ''}${Math.round(profit).toLocaleString()}원</td>
+    </tr>`;
     });
 
-    victimList.splice(dIdx, 1);
-}   
+    // 자산 정보 업데이트
+    document.getElementById('userTotalAsset').innerText = Math.round(userData.seed + totalStockValue).toLocaleString() + "원";
+    
+    // 전체 수익률 표시 (HTML에 totalPortfolioRate ID가 있는 경우)
+    const totalProfit = totalStockValue - totalInvested;
+    const totalRate = totalInvested > 0 ? ((totalProfit / totalInvested) * 100).toFixed(1) : 0;
+    const rateEl = document.getElementById('totalPortfolioRate');
+    if (rateEl) rateEl.innerText = `${totalRate}%`;
+}
+function openRosterSelector(slotRole) {
+    currentSelectingSlot = slotRole;
+    const modal = document.getElementById('playerSelectorModal');
+    const listDiv = document.getElementById('myOwnedPlayerList');
+    const titleEl = document.getElementById('modalTitle');
+    
+    if (titleEl) titleEl.innerText = `[${slotRole}] 선수 주식`;
+    listDiv.innerHTML = '';
 
-        if (isPlanted) {
-            let testAtkList = (teamA.side === "공격") ? aliveA : aliveB;
-            let testDefList = (teamA.side === "수비") ? aliveA : aliveB;
+    let allPlayers = JSON.parse(localStorage.getItem('market_players')) || [];
+    let userData = JSON.parse(localStorage.getItem('userData')) || { portfolio: {} };
+    let myPortfolio = userData.portfolio || {};
+    
+    // 1. 보유 중인 선수만 가져오기
+    let ownedPlayers = allPlayers.filter(p => myPortfolio[p.id] && myPortfolio[p.id].qty > 0);
 
-            if (testAtkList.length > 0 && testDefList.length === 0) {
-                loopBreak = true;
-            }
-            else if (testAtkList.length === 0 && testDefList.length > 0) {
-                let requiredTime = (defuseProgress >= 3.5) ? 3.5 : 7;
-                if (spikeTime < requiredTime && !isDefused) {
-                    loopBreak = true;
-                }
-            }
-        } else {
-            if (aliveA.length === 0 || aliveB.length === 0) loopBreak = true;
-        }
-    }
+    // 2. 핵심 로직: 포지션 필터링
+    let fitPlayers = ownedPlayers.filter(player => {
+        const pRoles = player.roles || []; // 선수에게 등록된 역할 배열
+        
+        // [규칙 1] 플렉스 슬롯은 누구든 가능
+        if (slotRole === "플렉스") return true;
+        
+        // [규칙 2] 해당 포지션(slotRole)이 선수 역할에 포함되어야 함
+        return pRoles.includes(slotRole);
+    });
 
-    let reason = "전멸 승리";
-    let finalRoundWinner = null;
-    let finalAtkList = (teamA.side === "공격") ? aliveA : aliveB;
-    let finalDefList = (teamA.side === "수비") ? aliveA : aliveB;
-
-    if (isPlanted) {
-        if (finalAtkList.length > 0 && finalDefList.length === 0) {
-            finalRoundWinner = atkTeam;
-            reason = "전멸 승리";
-        } 
-        else if (finalAtkList.length === 0 && finalDefList.length > 0) {
-            let requiredTime = (defuseProgress >= 3.5) ? 3.5 : 7;
-            
-            if (spikeTime < requiredTime && !isDefused) {
-                finalRoundWinner = atkTeam;
-                reason = "스파이크 폭파 승리";
-                
-                let remainingDefenders = [...finalDefList];
-                remainingDefenders.forEach(victimPlayer => {
-                    let vTeam = (teamA.players.some(p => p.name === victimPlayer.name)) ? teamA : teamB;
-                    roundQueue.push({
-                        type: "kill", isSpike: true, time: "0", isExplosion: true,
-                        killerTeam: null, killer: null, victimTeam: vTeam, victim: victimPlayer
-                    });
-                    victimPlayer.d++;
-                });
-                if (teamA.side === "수비") aliveA = []; else aliveB = [];
-            } 
-            else {
-                finalRoundWinner = defTeam;
-                reason = "스파이크 해체 승리"; 
-                if (!isDefused) {
-                    roundQueue.push({ 
-                        type: "text", 
-                        html: `<div class="defuse-alert">DEFUSE 수비팀이 스파이크를 해체했습니다.</div>` 
-                    });
-                }
-            }
-        } 
-        else if (isDefused) {
-            finalRoundWinner = defTeam;
-            reason = "스파이크 해체 승리";
-        } 
-        else {
-            finalRoundWinner = atkTeam;
-            reason = "스파이크 폭파 승리";
-        }
+    if (fitPlayers.length === 0) {
+        listDiv.innerHTML = `<p style="font-size:0.8rem; color:#fa5252; text-align:center;">배치 가능한 선수가 없습니다.</p>`;
     } else {
-        if (aliveA.length === 0) finalRoundWinner = teamB;
-        else if (aliveB.length === 0) finalRoundWinner = teamA;
-        else finalRoundWinner = rWinner;
-        reason = "전멸 승리";
+        fitPlayers.forEach(player => {
+            listDiv.innerHTML += `
+                <button onclick="selectPlayerForSlot('${player.id}')" style="text-align:left; background:#f1f3f5; border:1px solid #ced4da; padding:8px; border-radius:6px; cursor:pointer; width:100%; margin-bottom:4px;">
+                    <strong>${player.name}</strong> 
+                    <span style="font-size:0.75rem; color:#868e96;">(${player.roles.join(', ')})</span>
+                </button>
+            `;
+        });
     }
-
-    roundQueue.push({
-        type: "end", winnerName: finalRoundWinner.fullName, winnerShortName: finalRoundWinner.shortName,
-        winnerSideBadge: finalRoundWinner.side === "공격" ? "공격" : "수비", endReason: reason
-    });
-
-    let intervalSpeed = 800; 
-    if(roundQueue.length > 0) {
-        intervalSpeed = Math.floor(6000 / roundQueue.length); 
-    }
-    document.getElementById("matchStatus").innerText = `${currentRound}라운드 진행 중...`;
-    queueInterval = setInterval(processQueue, intervalSpeed);
+    if (modal) modal.style.display = 'block';
 }
 
-function processQueue() {
-    const logBox = document.getElementById("logBox");
-    if (roundQueue.length === 0) {
-        clearInterval(queueInterval);
+function switchTab(tab) {
+    currentTab = tab;
+    currentSelectedId = ''; 
+    renderAll();
+}
+
+function selectStock(pid) {
+    currentSelectedId = pid;
+    currentTab = pid.startsWith('p_') ? 'PLAYER' : 'TEAM';
+    renderAll();
+}
+
+function executeTrade(type) {
+    const players = JSON.parse(localStorage.getItem('market_players'));
+    const teams = JSON.parse(localStorage.getItem('market_teams'));
+    let userData = JSON.parse(localStorage.getItem('userData'));
+    
+    const pid = document.getElementById('tradeSelect').value;
+    const qty = parseInt(document.getElementById('tradeQuantity').value);
+    if(!qty || qty <= 0) return alert("올바른 수량을 입력하세요.");
+    
+    let p = [...players, ...teams].find(item => item.id === pid);
+    let totalCost = p.price * qty;
+
+    if (type === 'BUY') {
+        if (userData.seed < totalCost) return alert("자금이 부족합니다.");
+        userData.seed -= totalCost;
+        if (!userData.portfolio[pid]) userData.portfolio[pid] = { qty: 0, avgPrice: 0 };
+        let hold = userData.portfolio[pid];
+        hold.avgPrice = ((hold.avgPrice * hold.qty) + totalCost) / (hold.qty + qty);
+        hold.qty += qty;
+    } else {
+        if (!userData.portfolio[pid] || userData.portfolio[pid].qty < qty) return alert("보유 수량이 부족합니다.");
+        userData.seed += totalCost; userData.portfolio[pid].qty -= qty;
+        // 💡 [매도 성공 로직 내부] 선수의 보유 수량이 0이 되었는지 확인하는 부분입니다.
+if (userData.portfolio[pid] && userData.portfolio[pid].qty <= 0) {
+    
+    // 주식이 아예 없으므로 포트폴리오 객체에서 완전히 제거 (선택사항)
+    delete userData.portfolio[pid]; 
+
+    // 💡 [핵심] 드림팀(myFantasyTeam) 슬롯을 돌면서 매도한 선수(pid)가 있는지 확인하고 삭제
+    for (const slotRole in myFantasyTeam) {
+        if (myFantasyTeam[slotRole] === pid) {
+            myFantasyTeam[slotRole] = null; // 라인업에서 자동 해제
+        }
+    }
+
+    // 변경된 드림팀 데이터를 로컬스토리지에 영구 저장
+    localStorage.setItem('myFantasyTeam', JSON.stringify(myFantasyTeam));
+}
+
+// 이후 기존에 있던 UI 업데이트 함수들을 호출해 줍니다.
+localStorage.setItem('userData', JSON.stringify(userData));
+renderAll();       // 전광판 및 포트폴리오 리프레시
+updateFantasyUI(); // 드림팀 UI 리프레시 (라인업 빠진 것 반영)
+        if(userData.portfolio[pid].qty === 0) delete userData.portfolio[pid];
+    }
+
+    
+    localStorage.setItem('userData', JSON.stringify(userData));
+    document.getElementById('tradeQuantity').value = '';
+    renderAll();
+
+    
+}
+
+function renderChart(currentList) {
+    const item = currentList.find(x => x.id === currentSelectedId);
+    if (!item) return;
+
+// 💡 [버그 수정] 차트 상단 타이틀을 선택된 선수/팀 이름으로 실시간 교체
+    const chartTitleElement = document.getElementById('chartTitle');
+    if (chartTitleElement) {
+        // 팀 주식이면 [팀] 태그를, 선수면 이름을 직관적으로 노출
+        chartTitleElement.innerText = item.type === 'TEAM' ? `[팀] ${item.name}` : item.name;
+    }
+
+    const canvasElement = document.getElementById('stockChart');
+    if (!canvasElement) {
+        console.warn("화면에 'stockChart' 태그가 존재하지 않습니다.");
+        return; 
+    }
+    
+    const ctx = canvasElement.getContext('2d');
+    
+    if (window.myChartObj) {
+        window.myChartObj.destroy();
+    }
+
+    // 📌 [글로벌 스탠다드 1] 직전 회차 대비 현재가 비교로 '전체 테마 색상' 결정
+    const hasHistory = item.history.length > 1;
+    const currentPrice = item.history[item.history.length - 1];
+    const previousPrice = hasHistory ? item.history[item.history.length - 2] : item.history[0];
+
+    const isUp = currentPrice >= previousPrice;
+    
+    // 한국 거래소 및 e스포츠 직관성 국룰 (상승=빨강, 하락=파랑)
+    // 만약 해외 순수 증권사 느낌을 원하시면 초록색(#26a69a)과 빨간색(#ef5350)으로 바꾸셔도 됩니다.
+    const mainColor = isUp ? '#fa5252' : '#228be6'; 
+    
+    // 선 아래 은은하게 채워지는 프리미엄 그라데이션 Area 효과
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvasElement.height || 300);
+    gradient.addColorStop(0, isUp ? 'rgba(250, 82, 82, 0.2)' : 'rgba(34, 139, 230, 0.2)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+    const labels = item.history.map((_, index) => index === 0 ? "상장" : `${index}회`);
+
+    window.myChartObj = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: item.name,
+                data: item.history,
+                borderColor: mainColor,
+                backgroundColor: gradient,
+                fill: true,           
+                borderWidth: 2,      
+                tension: 0,           
+                pointRadius: 0,         
+                pointHitRadius: 10,     
+                
+              
+                pointHoverRadius: 5,    
+                pointHoverBackgroundColor: mainColor,
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,       
+                mode: 'index'
+            },
+            plugins: {
+                legend: { display: false }, 
+                tooltip: {
+                   
+                    backgroundColor: 'rgba(33, 37, 41, 0.95)',
+                    titleFont: { size: 12, weight: 'bold' },
+                    bodyFont: { size: 12 },
+                    padding: 8,
+                    cornerRadius: 4,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            return ` 주가: ${Math.round(context.raw).toLocaleString()}원`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false }, // 격자 세로선 제거하여 가독성 업
+                    ticks: { color: '#868e96', font: { size: 11 } }
+                },
+                y: {
+                    position: 'right', // 📌 [글로벌 스탠다드 3] 실제 주식 차트는 현재가를 쉽게 보려고 Y축이 우측에 있습니다.
+                    grid: { color: '#f1f3f5' }, 
+                    ticks: {
+                        color: '#868e96',
+                        font: { size: 11 },
+                        callback: function(value) {
+                            return value.toLocaleString() + "원"; 
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// [타격대 / 척후대 / 전략가 / 감시자 / 플렉스] 5대 직관적 포지션 셋업
+const SLOT_ROLES = ["타격대", "척후대", "전략가", "감시자", "플렉스"];
+
+let myFantasyTeam = JSON.parse(localStorage.getItem('my_fantasy_team_v3')) || {
+    "타격대": null, "척후대": null, "전략가": null, "감시자": null, "플렉스": null
+};
+let currentSelectingSlot = null; 
+
+// 💰 드림팀의 총 주가 및 실시간 스쿼드 변동률(%) 계산 반영 버전
+function updateFantasyUI() {
+    const rosterDiv = document.getElementById('fantasyRoster');
+    if (!rosterDiv) return;
+
+    rosterDiv.innerHTML = '';
+    let allPlayers = JSON.parse(localStorage.getItem('market_players')) || [];
+    let emptySlots = 0;
+    let hasFixedIgl = false;
+    
+    let totalTeamValue = 0;   // 현재 주가 총합
+    let prevTeamValue = 0;    // 직전 주가 총합 (변동률 계산용)
+
+    SLOT_ROLES.forEach(slotRole => {
+        const pId = myFantasyTeam[slotRole];
+        const player = allPlayers.find(x => x.id === pId);
+
+        if (player) {
+            // [1] 실시간 현재가 및 직전가 합산 데이터 축적
+            totalTeamValue += Math.round(player.price);
+            
+            // 직전 회차 가격이 있으면 그것을 더하고, 없으면 상장가(history[0])를 더함
+            const prevPrice = player.history.length > 1 ? player.history[player.history.length - 2] : player.history[0];
+            prevTeamValue += Math.round(prevPrice);
+
+           
+    }});
+
+    // 💡 [2] 핵심: 드림팀 총합 변동률(%) 연산 및 UI 렌더링
+    const valueDisplay = document.getElementById('fantasyTotalValue');
+    const rateDisplay = document.getElementById('fantasyTotalRate');
+
+    if (valueDisplay) {
+        valueDisplay.innerText = totalTeamValue.toLocaleString() + "원";
+    }
+
+    if (rateDisplay) {
+        if (totalTeamValue === 0 || prevTeamValue === 0) {
+            // 등록된 선수가 아무도 없을 때
+            rateDisplay.innerText = "(0.0%)";
+            rateDisplay.style.color = "#868e96";
+        } else {
+            // 변동률 공식 산출
+            const changeRate = (((totalTeamValue - prevTeamValue) / prevTeamValue) * 100).toFixed(1);
+            
+            if (changeRate > 0) {
+                rateDisplay.innerText = `(▲${changeRate}%)`;
+                rateDisplay.style.color = "#fa5252"; // 상승 시 빨간색
+            } else if (changeRate < 0) {
+                rateDisplay.innerText = `(▼${Math.abs(changeRate)}%)`;
+                rateDisplay.style.color = "#228be6"; // 하락 시 파란색
+            } else {
+                rateDisplay.innerText = "(0.0%)";
+                rateDisplay.style.color = "#868e96"; // 변동 없음 회색
+            }
+        }
+    }
+
+  
+}
+
+
+// 💰 드림팀의 총 주가(Value)를 계산하고 화면에 실시간으로 띄워주는 함수 추가
+function updateFantasyUI() {
+    const rosterDiv = document.getElementById('fantasyRoster');
+    if (!rosterDiv) return;
+
+    rosterDiv.innerHTML = '';
+    let allPlayers = JSON.parse(localStorage.getItem('market_players')) || [];
+    let emptySlots = 0;
+    let hasFixedIgl = false;
+    let totalTeamValue = 0; // ◀ 드림팀 총 주가 합산 변수
+
+    SLOT_ROLES.forEach(slotRole => {
+        const pId = myFantasyTeam[slotRole];
+        const player = allPlayers.find(x => x.id === pId);
+
+        if (player) {
+            // 현재가 합산
+            totalTeamValue += Math.round(player.price);
+
+            const isIgl = player.roles && player.roles.includes("IGL");
+            if (isIgl) hasFixedIgl = true;
+            
+            const playerRoles = player.roles || ["타격대"];
+            const pureRolesCount = playerRoles.filter(r => r !== "IGL").length;
+            const isMultiPlayer = pureRolesCount >= 2;
+
+            rosterDiv.innerHTML += `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:10px; border-radius:6px; font-size:0.9rem;border-left: 5px solid ${player && player.color ? player.color : (isIgl ? '#e64980' : '#01D2D7')};">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        
+                        <div>
+                            <span style="font-size:0.72rem; color:#495057; background:#e9ecef; padding:1px 4px; border-radius:3px; font-weight:bold;">${slotRole}</span>
+                            <strong>${player.name}</strong> <span style="font-size:0.8rem; color:#868e96;"></span>
+                            ${isIgl ? '<span style="color:#868e96; font-size:0.75rem; font-weight:bold;"> [IGL]</span>' : ''}
+                           
+                        </div>
+                    </div>
+                    <button onclick="removeFromFantasy('${slotRole}')" style="background:none; border:none; color:#868e96; cursor:pointer; font-weight:bold;">빼기</button>
+                </div>
+            `;
+        } else {
+            emptySlots++;
+            rosterDiv.innerHTML += `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:10px; border-radius:6px; font-size:0.9rem; border: 1px dashed #dee2e6; color:#adb5bd;">
+                    <span>[${slotRole}]    배치 가능</span>
+                    <button onclick="openRosterSelector('${slotRole}')" style="background:#e9ecef; border:none; padding:3px 8px; border-radius:4px; color:#495057; font-size:0.75rem; cursor:pointer;">+ 선수 선택</button>
+                </div>
+            `;
+        }
+    });
+
+    // 💡 HTML 상단에 총 주가 전광판 UI 결합 출력
+    const valueDisplay = document.getElementById('fantasyTotalValue');
+    if (valueDisplay) {
+        valueDisplay.innerText = totalTeamValue.toLocaleString() + "원";
+    }
+
+    const statusSpan = document.getElementById('fantasyStatus');
+    if (emptySlots === 0 && hasFixedIgl) {
+        statusSpan.innerText = "라인업 완성";
+        statusSpan.style.color = '#2b8a3e';
+        statusSpan.style.background = '#e7f5ff';
+    } else {
+        let errorMsg = "";
+        if (emptySlots > 0) errorMsg = `${emptySlots}명 필요`;
+        else if (!hasFixedIgl) errorMsg = "⚠️ IGL 필요";
+        
+        statusSpan.innerText = errorMsg;
+        statusSpan.style.color = '#e03131';
+        statusSpan.style.background = '#fff5f5';
+    }
+}
+// 선수 슬롯 배치 로직
+function selectPlayerForSlot(playerId) {
+    let allPlayers = JSON.parse(localStorage.getItem('market_players')) || [];
+    let target = allPlayers.find(x => x.id === playerId);
+    
+    if (Object.values(myFantasyTeam).includes(target.id)) {
+        alert("이미 다른 포지션에 등록된 선수입니다!");
         return;
     }
 
-    let item = roundQueue.shift();
+// 💡 [에러 방지] roles 데이터가 없는 일반 선수들을 위한 기본값 예외 처리
+    const playerRoles = target.roles || ["타격대"]; // 역할 지정 안 된 선수는 기본 타격대 처리
+    
+    const pureRolesCount = playerRoles.filter(r => r !== "IGL").length;
+    const isMultiPlayer = pureRolesCount >= 2; 
 
-    if (item.type === "text" || item.type === "swap") {
-        logBox.innerHTML += item.html;
-        if(item.type === "swap") updateSideColors();
-    } 
-    else if (item.type === "kill") {
-        if (!item.isExplosion) {
-            let origKiller = item.killerTeam.players.find(p => p.name === item.killer.name);
-            let origVictim = item.victimTeam.players.find(p => p.name === item.victim.name);
-            origKiller.k++;
-            origVictim.d++;
-        }
-        logBox.innerHTML += makeKillLogHtml(item.isSpike, item.time, item.killerTeam, item.killer, item.victimTeam, item.victim, item.isExplosion);
-        updateStatTables();
-    } 
-    else if (item.type === "end") {
-        let rWinTeam = (item.winnerName === teamA.fullName) ? teamA : teamB;
-        rWinTeam.score++;
-        
-        let resColor = rWinTeam.shortName === "T1" ? "#1B8877" : "#7D313F";
-        document.getElementById("scoreA").innerText = teamA.score;
-        document.getElementById("scoreB").innerText = teamB.score;
+    // 포지션 매칭 디펜스 가드
+    if (currentSelectingSlot === "플렉스") {
+        // 플렉스 자리는 아무나 프리패스
+    } else if (!playerRoles.includes(currentSelectingSlot) && !isMultiPlayer) {
+        alert(`❌ 배정 불가! '${target.name}' 이 선수는 [${currentSelectingSlot}]가 아닙니다.`);
+        return;
+    }
 
-        // [변경] 결과 메시지에서도 풀네임(fullName)을 적용하여 통일성 유지
-        logBox.innerHTML += `<div class="round-result" style="border-left-color: ${resColor};">
-            라운드 종료: ${item.winnerName} (${item.winnerSideBadge}) 승리 - <span style="color:#FFFFCA;">${item.endReason}</span> <span style="color:#aaa; margin-left:10px;"></span>
-        </div>`;
+    myFantasyTeam[currentSelectingSlot] = target.id;
+    localStorage.setItem('my_fantasy_team_v2', JSON.stringify(myFantasyTeam));
+    closeSelectorModal();
+    updateFantasyUI();
+}
 
-        if (
-    (teamA.score >= 13 || teamB.score >= 13) &&
-    Math.abs(teamA.score - teamB.score) >= 2
-) {
-            let finalWinner = teamA.score >= 13 ? teamA.fullName : teamB.fullName;
-            document.getElementById("matchStatus").innerText = `경기 우승팀: ${finalWinner}!`;
-            logBox.innerHTML += `<div style="background:#1B8877; color:#fff; font-weight:bold; text-align:center; padding:10px; border-radius:4px; margin-top:15px;">
-                MATCH FINISHED 최종 스코어 ${teamA.score} 대 ${teamB.score}로 ${finalWinner} 승리!
-            </div>`;
-            isMatchActive = false;
-        } else {
-            currentRound++;
-            let autoDelay = (currentRound === 13) ? 3000 : 2000; 
-            let delaySeconds = autoDelay / 1000;
-            document.getElementById("matchStatus").innerText = `라운드 마감. ${delaySeconds}초 후 다음 라운드로 자동 진입합니다.`;
-            setTimeout(() => {
-                if(isMatchActive) generateRoundData();
-            }, autoDelay);
+function closeSelectorModal() {
+    document.getElementById('playerSelectorModal').style.display = 'none';
+}
+
+function removeFromFantasy(slotRole) {
+    myFantasyTeam[slotRole] = null;
+    localStorage.setItem('my_fantasy_team_v2', JSON.stringify(myFantasyTeam));
+    updateFantasyUI();
+}
+
+function saveFantasyTeam() {
+    let allPlayers = JSON.parse(localStorage.getItem('market_players')) || [];
+    let isFull = Object.values(myFantasyTeam).every(x => x !== null);
+    
+    // 고정 IGL 체크 로직
+    let hasFixedIgl = false;
+    for (let role in myFantasyTeam) {
+        let id = myFantasyTeam[role];
+        let p = allPlayers.find(x => x.id === id);
+        if (p && p.roles && p.roles.includes("IGL")) {
+            hasFixedIgl = true;
         }
     }
-    logBox.scrollTop = logBox.scrollHeight;
-}
-function weightedPlayer(players, type = "normal") {
 
-    let weights = players.map(p => {
+    if (!isFull) return alert("5명의 선수를 모두 선택 해야 저장 가능합니다.!");
+    if (!hasFixedIgl) return alert("❌ 저장 불가! IGL을 최소 1명 선택하세요.");
 
-        let value = 0;
+    // 💡 핵심: 아래 코드가 추가되어야 새로고침해도 데이터가 유지됩니다.
+    localStorage.setItem('my_fantasy_team_v3', JSON.stringify(myFantasyTeam));
 
-        if(type === "entry") {
-
-    value =
-        p.stats.mechanics * 0.40 +
-        p.stats.consistency * 0.35 +
-        p.stats.survival * 0.25;
+    alert("🏆 [라인업 확정] 라인업이 성공적으로 저장되었습니다!");
 }
 
-        else {
-
-            value =
-                p.stats.mechanics * 0.45 +
-                p.stats.consistency * 0.30 +
-                p.stats.survival * 0.25;
-        }
-
-        return Math.max(1, value);
+function filterStocks() {
+    const keyword = document.getElementById('searchTicker').value.toLowerCase();
+    const items = document.querySelectorAll('.ticker-item');
+    items.forEach(item => {
+        const name = item.querySelector('strong').innerText.toLowerCase();
+        item.style.display = name.includes(keyword) ? '' : 'none';
     });
-
-    let total = weights.reduce((a,b)=>a+b,0);
-
-    let rand = Math.random() * total;
-
-    for(let i=0;i<players.length;i++) {
-
-        rand -= weights[i];
-
-        if(rand <= 0) {
-            return i;
-        }
-    }
-
-    return 0;
 }
-function weightedDeath(players) {
 
-    let weights = players.map(p => {
+updateFantasyUI();
 
-        let surviveScore =
-            p.stats.survival * 0.4 +
-            p.stats.consistency * 0.3 +
-            p.stats.mechanics * 0.3;
-
-        return Math.max(
-            25,
-            70 - surviveScore * 0.35
-        );
-    });
-
-    let total = weights.reduce((a,b)=>a+b,0);
-
-    let rand = Math.random() * total;
-
-    for(let i=0;i<players.length;i++) {
-
-        rand -= weights[i];
-
-        if(rand <= 0) {
-            return i;
-        }
-    }
-
-    return 0;
-}
+window.addEventListener('storage', renderAll);
+window.onload = renderAll;
 </script>
 </body>
 </html>
