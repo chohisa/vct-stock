@@ -219,8 +219,7 @@ function updateTeamMatch() {
     if(res === 'WIN') {
         finalRate = odds * 0.05;
     } else {
-        const enemyOdds = odds < 1.5 ? 3.0 : 1.2;
-        finalRate = -(enemyOdds * 0.05); 
+        finalRate = (Odds * 0.05); 
     }
 
     const nextPrice = Math.round(t.price * (1 + finalRate));
