@@ -218,8 +218,8 @@ function updateTeamMatch() {
 
     if(res === 'WIN') {
         finalRate = odds * 0.05;
-    } else {
-        finalRate = -(ememyOdds * 0.05); 
+    } else if (res === 'LOSE') {
+        finalRate = -(odds * 0.05); 
     }
 
     const nextPrice = Math.round(t.price * (1 + finalRate));
