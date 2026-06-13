@@ -190,7 +190,7 @@ function updatePlayerACS() {
 
     let p = players.find(x => x.id === pid);
     const prevACS = p.acs;
-    const rate = ((nextACS - prevACS) / prevACS; 
+    const rate = (nextACS - prevACS) / prevACS; 
     const nextPrice = Math.round(p.price * (1 + rate));
 
     // 💡 핵심: history에 단순히 숫자만 넣지 말고 객체로 저장
